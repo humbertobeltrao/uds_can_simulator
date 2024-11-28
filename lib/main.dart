@@ -1,135 +1,4 @@
-/*import 'dart:io';
-import 'package:flutter/material.dart';
-import 'package:file_picker/file_picker.dart';
-import 'package:http/http.dart' as http;
-import 'package:permission_handler/permission_handler.dart';
-
-void main() {
-  runApp(MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      home: FileUploadPage(),
-    );
-  }
-}
-
-class FileUploadPage extends StatefulWidget {
-  @override
-  _FileUploadPageState createState() => _FileUploadPageState();
-}
-
-class _FileUploadPageState extends State<FileUploadPage> {
-  String? _ipAddress;
-  String? _selectedFilePath;
-
-  @override
-  void initState() {
-    super.initState();
-    _checkPermission();
-  }
-
-  Future<void> _checkPermission() async {
-    if (await Permission.storage.request().isGranted) {
-      // Permission granted, continue
-    } else {
-      // Permission denied, show a message or handle accordingly
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text('Storage permission is required to pick a file.')),
-      );
-    }
-  }
-
-  Future<void> _startFilePicker() async {
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['bin'],
-    );
-
-    if (result != null) {
-      setState(() {
-        _selectedFilePath = result.files.single.path;
-      });
-    }
-  }
-
-  Future<void> _uploadFile() async {
-    if (_selectedFilePath == null ||
-        _ipAddress == null ||
-        _ipAddress!.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text('Please select a file and enter the IP address.')),
-      );
-      return;
-    }
-
-    final uri = Uri.parse('http://$_ipAddress/upload');
-    final request = http.MultipartRequest('POST', uri)
-      ..files.add(await http.MultipartFile.fromPath(
-        'file',
-        _selectedFilePath!,
-        filename: _selectedFilePath!.split('/').last,
-      ));
-
-    final response = await request.send();
-
-    if (response.statusCode == 200) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('File uploaded successfully')),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('File upload failed')),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('File Upload'),
-      ),
-      body: Padding(
-        padding: EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            TextField(
-              decoration: InputDecoration(
-                labelText: 'Enter ESP32 IP Address',
-                border: OutlineInputBorder(),
-              ),
-              onChanged: (value) {
-                _ipAddress = value;
-              },
-            ),
-            SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _startFilePicker,
-              child: Text('Select .bin File'),
-            ),
-            SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _uploadFile,
-              child: Text('Upload File'),
-            ),
-            if (_selectedFilePath != null) ...[
-              SizedBox(height: 16),
-              Text('Selected file: ${_selectedFilePath!.split('/').last}'),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}*/
-
+//TO TRANSFER FROM CLOUD TO SD CARD (USING client.ino FILE)
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -154,7 +23,7 @@ class _FirmwareListState extends State<FirmwareList> {
   // Fetch the JSON file containing firmware versions
   Future<void> fetchFirmwareVersions() async {
     final response = await http.get(Uri.parse(
-        'https://drive.google.com/uc?export=download&id=1R4iZKPCbdQDQ0JhU5KlgHnPGoNR7aliA'));
+        'https://drive.google.com/uc?export=download&id=1sXG-sWlGdqKr6ouHnW9tpQZUECDOBubU'));
 
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
@@ -240,3 +109,116 @@ void main() {
     home: FirmwareList(),
   ));
 }
+/*
+//TO STORE FILE LOCALLY
+import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
+
+void main() {
+  runApp(MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Firmware Downloader',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+      ),
+      home: FirmwareListScreen(),
+    );
+  }
+}
+
+class FirmwareListScreen extends StatefulWidget {
+  @override
+  _FirmwareListScreenState createState() => _FirmwareListScreenState();
+}
+
+class _FirmwareListScreenState extends State<FirmwareListScreen> {
+  List<dynamic> firmwareVersions = [];
+
+  @override
+  void initState() {
+    super.initState();
+    fetchFirmwareVersions();
+  }
+
+  Future<void> fetchFirmwareVersions() async {
+    final response = await http.get(Uri.parse(
+        'https://drive.google.com/uc?export=download&id=1R4iZKPCbdQDQ0JhU5KlgHnPGoNR7aliA'));
+
+    if (response.statusCode == 200) {
+      setState(() {
+        firmwareVersions = json.decode(response.body)['firmware_versions'];
+      });
+    } else {
+      throw Exception('Failed to load firmware versions');
+    }
+  }
+
+  Future<void> downloadFirmware(String url, String displayVersion) async {
+    final stopwatch = Stopwatch()..start();
+
+    final response = await http.get(Uri.parse(url));
+    final bytes = response.bodyBytes;
+
+    final directory = await getApplicationDocumentsDirectory();
+    final file = File('${directory.path}/firmware_$displayVersion.bin');
+
+    await file.writeAsBytes(bytes);
+
+    stopwatch.stop();
+
+    print('Download completed in ${stopwatch.elapsed.inSeconds} seconds');
+    print('File saved at: ${file.path}'); // Print file path
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+          content: Text(
+              'Download completed in ${stopwatch.elapsed.inSeconds} seconds. File saved at: ${file.path}')),
+    );
+    await moveFileToExternalStorage('firmware_$displayVersion.bin');
+  }
+
+  Future<void> moveFileToExternalStorage(String fileName) async {
+    final directory = await getApplicationDocumentsDirectory();
+    final internalFile = File('${directory.path}/$fileName');
+
+    final externalDirectory = await getExternalStorageDirectory();
+    final externalFile = File('${externalDirectory!.path}/$fileName');
+
+    // Copy the file to external storage
+    await internalFile.copy(externalFile.path);
+
+    print('File moved to external storage: ${externalFile.path}');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Firmware Versions'),
+      ),
+      body: firmwareVersions.isEmpty
+          ? Center(child: CircularProgressIndicator())
+          : ListView.builder(
+              itemCount: firmwareVersions.length,
+              itemBuilder: (context, index) {
+                final firmware = firmwareVersions[index];
+                return ListTile(
+                  title: Text(firmware['display_version']),
+                  onTap: () {
+                    downloadFirmware(
+                        firmware['url'], firmware['display_version']);
+                  },
+                );
+              },
+            ),
+    );
+  }
+}*/
